@@ -1,0 +1,9 @@
+{
+  "name": "kataka-predict",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Kataka Predict - Global Multi-Model Football Predictions & Subscription Engine",
+  "scripts": {
+    "dev": "vercel dev"
+  }
+}
