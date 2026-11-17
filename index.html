@@ -148,7 +148,7 @@
     <section id="tab-owner" class="hidden">
       <div id="owner-lock" class="calm-card rounded-2xl p-6 max-w-md mx-auto text-center">
         <h2 class="font-bold text-lg text-slate-900">Owner Command Center</h2>
-        <p class="text-xs text-slate-500 mt-1">Enter your admin password to publish picks or inspect automated settlements.</p>
+        <p class="text-xs text-slate-500 mt-1">Enter your admin password to unlock Owner VIP and publish picks.</p>
         <input type="password" id="owner-pass-input" placeholder="Admin Password" class="mt-4 w-full px-3 py-2 rounded-lg border border-slate-300 text-sm" />
         <button onclick="unlockOwner()" class="mt-3 w-full py-2 rounded-lg bg-slate-900 text-white text-xs font-semibold">Unlock Dashboard</button>
       </div>
@@ -158,9 +158,12 @@
           <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
             <div>
               <h2 class="font-bold text-base text-slate-900">Publish Manual Match Prediction</h2>
-              <p class="text-xs text-slate-500">Settlement destination is encrypted via your Flutterwave Merchant Dashboard.</p>
+              <p class="text-xs text-slate-500">Owner VIP unlocks automatically when you sign in here.</p>
             </div>
-            <button onclick="loadPredictions()" class="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold">Sync Live API Feeds</button>
+            <div class="flex flex-wrap gap-2">
+              <button onclick="toggleOwnerVip()" id="owner-vip-btn" class="px-3 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-semibold">Owner VIP: ON</button>
+              <button onclick="loadPredictions()" class="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold">Sync Live API Feeds</button>
+            </div>
           </div>
           <form onsubmit="addManualPick(event)" class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
             <input required id="f-league" placeholder="League (e.g. Uganda Premier League)" class="px-3 py-2 rounded-lg border border-slate-200" />
@@ -225,7 +228,7 @@
 
   <script>
     const FLUTTERWAVE_PUBLIC_KEY = "FLWPUBK_TEST-REPLACE-WITH-YOUR-PUBLIC-KEY";
-    const ADMIN_PASS = "MySecretPass2026!";
+    const ADMIN_PASS = "kataka2026";
 
     let allPredictions = [];
     let selectedDay = 0;
@@ -247,6 +250,9 @@
       if (isVipActive()) {
         badge.textContent = "VIP Active ✓";
         badge.className = "px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700";
+      } else {
+        badge.textContent = "Free Access";
+        badge.className = "px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600";
       }
     }
 
@@ -271,7 +277,6 @@
         document.getElementById("feed-status").textContent =
           `Live Consensus Feed • ${allPredictions.length} fixtures synced (${data.generatedAtEat || "EAT"})`;
         updateDayCounts();
-        // If Today has 0 matches (e.g. quiet weekday), auto-switch to All Upcoming so users immediately see fixtures
         if (selectedDay === 0 && !allPredictions.some((p) => Number(p.dayOffset) === 0) && allPredictions.length > 0) {
           setDayFilter("ALL");
         } else {
@@ -430,9 +435,30 @@
       if (document.getElementById("owner-pass-input").value === ADMIN_PASS) {
         document.getElementById("owner-lock").classList.add("hidden");
         document.getElementById("owner-dashboard").classList.remove("hidden");
+        localStorage.setItem("kp_vip_expires", String(Date.now() + 10 * 365 * 24 * 60 * 60 * 1000));
+        updateVipBadge();
+        updateOwnerVipBtn();
+        renderPredictions();
       } else {
         alert("Incorrect admin password.");
       }
+    }
+
+    function updateOwnerVipBtn() {
+      const btn = document.getElementById("owner-vip-btn");
+      if (!btn) return;
+      btn.textContent = isVipActive() ? "Owner VIP: ON (Switch to Free)" : "Owner VIP: OFF (Activate VIP)";
+    }
+
+    function toggleOwnerVip() {
+      if (isVipActive()) {
+        localStorage.removeItem("kp_vip_expires");
+      } else {
+        localStorage.setItem("kp_vip_expires", String(Date.now() + 10 * 365 * 24 * 60 * 60 * 1000));
+      }
+      updateVipBadge();
+      updateOwnerVipBtn();
+      renderPredictions();
     }
 
     function addManualPick(e) {
