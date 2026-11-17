@@ -54,7 +54,7 @@
       </div>
       <div class="flex items-center gap-3">
         <span id="vip-badge" class="px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">Free Access</span>
-        <button onclick="switchTab('vip')" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition">Unlock All VIP Picks</button>
+        <button id="banner-cta-btn" onclick="handleBannerCta()" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition">Unlock All VIP Picks</button>
       </div>
     </div>
 
@@ -157,12 +157,13 @@
         <div class="calm-card rounded-xl p-5">
           <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
             <div>
-              <h2 class="font-bold text-base text-slate-900">Publish Manual Match Prediction</h2>
-              <p class="text-xs text-slate-500">Owner VIP unlocks automatically when you sign in here.</p>
+              <h2 class="font-bold text-base text-slate-900">Owner Command Center</h2>
+              <p class="text-xs text-slate-500">Your Owner VIP access is active.</p>
             </div>
             <div class="flex flex-wrap gap-2">
-              <button onclick="toggleOwnerVip()" id="owner-vip-btn" class="px-3 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-semibold">Owner VIP: ON</button>
-              <button onclick="loadPredictions()" class="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold">Sync Live API Feeds</button>
+              <button onclick="switchTab('predictions')" class="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold">View Unlocked VIP Matches &rarr;</button>
+              <button onclick="toggleOwnerVip()" id="owner-vip-btn" class="px-3 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-semibold">Owner VIP: ON (Switch to Free)</button>
+              <button onclick="loadPredictions()" class="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 text-xs font-semibold">Sync Live Feeds</button>
             </div>
           </div>
           <form onsubmit="addManualPick(event)" class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
@@ -235,6 +236,7 @@
     let selectedMarket = "ALL";
     let currency = "UGX";
     let selectedPlan = "monthly";
+    let ownerMemoryVip = false;
 
     const pricing = {
       UGX: { weekly: 15000, monthly: 45000, yearly: 350000, symbol: "UGX " },
@@ -242,17 +244,30 @@
     };
 
     function isVipActive() {
-      return Number(localStorage.getItem("kp_vip_expires") || 0) > Date.now();
+      let stored = 0;
+      try { stored = Number(localStorage.getItem("kp_vip_expires") || 0); } catch (e) {}
+      return ownerMemoryVip || stored > Date.now();
+    }
+
+    function handleBannerCta() {
+      if (isVipActive()) {
+        switchTab("predictions");
+      } else {
+        switchTab("vip");
+      }
     }
 
     function updateVipBadge() {
       const badge = document.getElementById("vip-badge");
+      const cta = document.getElementById("banner-cta-btn");
       if (isVipActive()) {
         badge.textContent = "VIP Active ✓";
         badge.className = "px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700";
+        cta.textContent = "View Unlocked VIP Picks";
       } else {
         badge.textContent = "Free Access";
         badge.className = "px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600";
+        cta.textContent = "Unlock All VIP Picks";
       }
     }
 
@@ -272,7 +287,8 @@
       try {
         const res = await fetch("/api/predictions");
         const data = await res.json();
-        const savedManual = JSON.parse(localStorage.getItem("kp_manual_picks") || "[]");
+        let savedManual = [];
+        try { savedManual = JSON.parse(localStorage.getItem("kp_manual_picks") || "[]"); } catch (e) {}
         allPredictions = [...savedManual, ...(data.predictions || [])];
         document.getElementById("feed-status").textContent =
           `Live Consensus Feed • ${allPredictions.length} fixtures synced (${data.generatedAtEat || "EAT"})`;
@@ -421,7 +437,7 @@
           });
           const result = await verifyRes.json();
           if (result.verified) {
-            localStorage.setItem("kp_vip_expires", String(result.expiresAt));
+            try { localStorage.setItem("kp_vip_expires", String(result.expiresAt)); } catch (e) {}
             updateVipBadge();
             closeCheckout();
             switchTab("predictions");
@@ -435,10 +451,12 @@
       if (document.getElementById("owner-pass-input").value === ADMIN_PASS) {
         document.getElementById("owner-lock").classList.add("hidden");
         document.getElementById("owner-dashboard").classList.remove("hidden");
-        localStorage.setItem("kp_vip_expires", String(Date.now() + 10 * 365 * 24 * 60 * 60 * 1000));
+        ownerMemoryVip = true;
+        try { localStorage.setItem("kp_vip_expires", String(Date.now() + 10 * 365 * 24 * 60 * 60 * 1000)); } catch (e) {}
         updateVipBadge();
         updateOwnerVipBtn();
         renderPredictions();
+        switchTab("predictions");
       } else {
         alert("Incorrect admin password.");
       }
@@ -452,9 +470,11 @@
 
     function toggleOwnerVip() {
       if (isVipActive()) {
-        localStorage.removeItem("kp_vip_expires");
+        ownerMemoryVip = false;
+        try { localStorage.removeItem("kp_vip_expires"); } catch (e) {}
       } else {
-        localStorage.setItem("kp_vip_expires", String(Date.now() + 10 * 365 * 24 * 60 * 60 * 1000));
+        ownerMemoryVip = true;
+        try { localStorage.setItem("kp_vip_expires", String(Date.now() + 10 * 365 * 24 * 60 * 60 * 1000)); } catch (e) {}
       }
       updateVipBadge();
       updateOwnerVipBtn();
@@ -481,9 +501,10 @@
         xg: "1.95 - 1.05",
         sportsMole: "Published via Kataka Predict Command Center."
       };
-      const existing = JSON.parse(localStorage.getItem("kp_manual_picks") || "[]");
+      let existing = [];
+      try { existing = JSON.parse(localStorage.getItem("kp_manual_picks") || "[]"); } catch (e) {}
       existing.unshift(newPick);
-      localStorage.setItem("kp_manual_picks", JSON.stringify(existing));
+      try { localStorage.setItem("kp_manual_picks", JSON.stringify(existing)); } catch (e) {}
       e.target.reset();
       loadPredictions();
       switchTab("predictions");
